@@ -337,15 +337,15 @@ Term Cvc5Solver::make_term(std::string val,
     else if (sk == FLOAT32)
     {
       float value = std::stof(val);
-      auto bv = solver.mkBitVector(FPSizes<FLOAT32>::size, *(uint32_t*)&value);
-      c = solver.mkFloatingPoint(
+      auto bv = term_manager->mkBitVector(FPSizes<FLOAT32>::size, *(uint32_t*)&value);
+      c = term_manager->mkFloatingPoint(
           FPSizes<FLOAT32>::exp, FPSizes<FLOAT32>::sig, bv);
     }
     else if (sk == FLOAT64)
     {
       double value = std::stod(val);
-      auto bv = solver.mkBitVector(FPSizes<FLOAT64>::size, *(uint64_t*)&value);
-      c = solver.mkFloatingPoint(
+      auto bv = term_manager->mkBitVector(FPSizes<FLOAT64>::size, *(uint64_t*)&value);
+      c = term_manager->mkFloatingPoint(
           FPSizes<FLOAT64>::exp, FPSizes<FLOAT64>::sig, bv);
     }
     else
@@ -1041,6 +1041,28 @@ SortVec Cvc5Solver::make_datatype_sorts(
 
 Term Cvc5Solver::make_term(Op op, const Term & t0, const Term & t1) const
 {
+  // TODO: rounding mode must be specified by the caller for FP operations
+  switch (op.prim_op)
+  {
+    case FPAdd:
+    case FPSub:
+    case FPMul:
+    case FPDiv:
+    case FPFma:
+    case FPSqrt:
+    case FPRti:
+    case FP_To_FP:
+    case Real_To_FP:
+    case SBV_To_FP:
+    case UBV_To_FP:
+    case FP_To_UBV:
+    case FP_To_SBV: {
+      auto rm = std::make_shared<Cvc5Term>(solver.mkRoundingMode(
+          cvc5::RoundingMode::ROUND_NEAREST_TIES_TO_EVEN));
+      return make_term(op, TermVec({ rm, t0, t1 }));
+    }
+    default: break;
+  }
   return make_term(op, TermVec({ t0, t1 }));
 }
 
