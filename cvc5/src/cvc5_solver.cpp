@@ -96,9 +96,9 @@ const std::unordered_map<PrimOp, ::cvc5::Kind> primop2kind(
       // Indexed Op
       { Rotate_Right, ::cvc5::Kind::BITVECTOR_ROTATE_RIGHT },
       // Conversion
-      { BV_To_Nat, ::cvc5::Kind::BITVECTOR_UBV_TO_INT },
-      { UBV_To_Int, ::cvc5::Kind::BITVECTOR_UBV_TO_INT },
-      { SBV_To_Int, ::cvc5::Kind::BITVECTOR_SBV_TO_INT },
+      { BV_To_Nat, ::cvc5::Kind::BITVECTOR_TO_NAT },
+      { UBV_To_Int, ::cvc5::Kind::BITVECTOR_TO_NAT },
+      { SBV_To_Int, ::cvc5::Kind::BITVECTOR_TO_NAT },
       { Int_To_BV, ::cvc5::Kind::INT_TO_BITVECTOR },
       // String Op
       { StrLt, ::cvc5::Kind::STRING_LT },
