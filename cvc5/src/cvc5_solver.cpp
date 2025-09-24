@@ -393,7 +393,7 @@ Term Cvc5Solver::make_term(FPRoundingMode roundingMode) const
       rm = cvc5::RoundingMode::ROUND_NEAREST_TIES_TO_AWAY;
       break;
   }
-  return std::make_shared<Cvc5Term>(solver.mkRoundingMode(rm));
+  return std::make_shared<Cvc5Term>(term_manager->mkRoundingMode(rm));
 }
 
 void Cvc5Solver::assert_formula(const Term & t)
