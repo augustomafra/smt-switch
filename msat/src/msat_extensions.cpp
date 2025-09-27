@@ -96,7 +96,9 @@ msat_term ext_msat_make_ite(msat_env e, msat_term i, msat_term t, msat_term el)
     throw IncorrectUsageException(msg + msat_to_smtlib2_term(e, i));
   }
 
-  if (!msat_type_equals(ttype, eltype))
+  if (!msat_type_equals(ttype, eltype) 
+      && !((msat_is_integer_type(e, ttype) && msat_is_rational_type(e, eltype)) || 
+           (msat_is_rational_type(e, ttype) && msat_is_integer_type(e, eltype))))
   {
     string msg("Expecting matching branch terms for ITE but got\n\t");
     throw IncorrectUsageException(msg + msat_type_repr(ttype) + " "
