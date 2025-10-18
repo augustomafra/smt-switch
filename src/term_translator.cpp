@@ -575,7 +575,21 @@ Term TermTranslator::cast_op(Op op, const TermVec & terms) const
     Term ifbranch = terms[1];
     Term elsebranch = terms[2];
 
-    if (ifbranch->get_sort() != elsebranch->get_sort())
+    bool different_sorts = ifbranch->get_sort() != elsebranch->get_sort();
+    if (solver->get_solver_enum() == MSAT
+        || solver->get_solver_enum() == MSAT_INTERPOLATOR)
+    {
+      // MathSAT does not cast Int to Real
+      if ((ifbranch->get_sort()->get_sort_kind() == INT
+           && elsebranch->get_sort()->get_sort_kind() == REAL)
+          || (ifbranch->get_sort()->get_sort_kind() == REAL
+              && elsebranch->get_sort()->get_sort_kind() == INT))
+      {
+        different_sorts = false;
+      }
+    }
+
+    if (different_sorts)
     {
       // arbitrarily deciding to cast to the ifbranch sort
       elsebranch = cast_term(elsebranch, ifbranch->get_sort());
