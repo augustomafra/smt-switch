@@ -124,6 +124,38 @@ const std::unordered_map<PrimOp, std::function<bool(const SortVec & sorts)>>
         { Apply_Constructor, check_constructor_sorts },
         { Apply_Selector, check_selector_sorts },
         { Apply_Tester, check_tester_sorts },
+        { FPEq, fp_sorts },
+        { FPAbs, fp_sorts },
+        { FPNeg, fp_sorts },
+        { FPAdd, fp_rounding_mode_sorts },
+        { FPSub, fp_rounding_mode_sorts },
+        { FPMul, fp_rounding_mode_sorts },
+        { FPDiv, fp_rounding_mode_sorts },
+        { FPFma, fp_rounding_mode_sorts },
+        { FPSqrt, fp_rounding_mode_sorts },
+        { FPRem, fp_sorts },
+        { FPRti, fp_rounding_mode_sorts },
+        { FPMin, fp_sorts },
+        { FPMax, fp_sorts },
+        { FPLeq, fp_sorts },
+        { FPLt, fp_sorts },
+        { FPGeq, fp_sorts },
+        { FPGt, fp_sorts },
+        { FPIsNormal, fp_sorts },
+        { FPIsSubNormal, fp_sorts },
+        { FPIsZero, fp_sorts },
+        { FPIsInf, fp_sorts },
+        { FPIsNan, fp_sorts },
+        { FPIsNeg, fp_sorts },
+        { FPIsPos, fp_sorts },
+        { IEEEBV_To_FP, fp_rounding_mode_sorts },
+        { FP_To_FP, fp_rounding_mode_sorts },
+        { Real_To_FP, fp_rounding_mode_real_sorts },
+        { SBV_To_FP, fp_rounding_mode_bv_sorts },
+        { UBV_To_FP, fp_rounding_mode_bv_sorts },
+        { FP_To_UBV, fp_rounding_mode_sorts },
+        { FP_To_SBV, fp_rounding_mode_sorts },
+        { FP_To_REAL, fp_sorts },
     });
 
 // map from Primitive Operators to the corresponding sort inference function
@@ -220,6 +252,38 @@ const std::unordered_map<
         { Apply_Constructor, constructor_sort },
         { Apply_Tester, bool_sort },
         { Apply_Selector, selector_sort },
+        { FPEq, bool_sort },
+        { FPAbs, same_sort },
+        { FPNeg, same_sort },
+        { FPAdd, same_sort_second },
+        { FPSub, same_sort_second },
+        { FPMul, same_sort_second },
+        { FPDiv, same_sort_second },
+        { FPFma, same_sort_second },
+        { FPSqrt, same_sort_second },
+        { FPRem, same_sort },
+        { FPRti, same_sort_second },
+        { FPMin, same_sort },
+        { FPMax, same_sort },
+        { FPLeq, bool_sort },
+        { FPLt, bool_sort },
+        { FPGeq, bool_sort },
+        { FPGt, bool_sort },
+        { FPIsNormal, bool_sort },
+        { FPIsSubNormal, bool_sort },
+        { FPIsZero, bool_sort },
+        { FPIsInf, bool_sort },
+        { FPIsNan, bool_sort },
+        { FPIsNeg, bool_sort },
+        { FPIsPos, bool_sort },
+        { IEEEBV_To_FP, fp_sort },
+        { FP_To_FP, fp_sort },
+        { Real_To_FP, fp_sort },
+        { SBV_To_FP, fp_sort },
+        { UBV_To_FP, fp_sort },
+        { FP_To_UBV, int_to_bv_sort },
+        { FP_To_SBV, int_to_bv_sort },
+        { FP_To_REAL, real_sort }
     });
 
 // main function implementations
@@ -592,6 +656,36 @@ bool function_sorts(const SortVec & sorts)
   return check_sortkind_matches(FUNCTION, sorts);
 };
 
+bool fp_sorts(const SortVec & sorts)
+{
+  return check_sortkind_matches(FLOAT32, sorts)
+         || check_sortkind_matches(FLOAT64, sorts);
+};
+
+bool fp_rounding_mode_sorts(const SortVec & sorts)
+{
+  assert(sorts.size());
+  auto it = sorts.begin();
+  return (*it++)->get_sort_kind() == ROUNDINGMODE
+         && fp_sorts(SortVec{ it, sorts.end() });
+}
+
+bool fp_rounding_mode_real_sorts(const SortVec & sorts)
+{
+  assert(sorts.size());
+  auto it = sorts.begin();
+  return (*it++)->get_sort_kind() == ROUNDINGMODE
+         && real_sorts(SortVec{ it, sorts.end() });
+}
+
+bool fp_rounding_mode_bv_sorts(const SortVec & sorts)
+{
+  assert(sorts.size());
+  auto it = sorts.begin();
+  return (*it++)->get_sort_kind() == ROUNDINGMODE
+         && bv_sorts(SortVec{ it, sorts.end() });
+}
+
 /* helpers for sort inference (return type of operation) */
 
 /* Common sort computation helper functions */
@@ -599,6 +693,11 @@ bool function_sorts(const SortVec & sorts)
 Sort same_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts)
 {
   return sorts[0];
+}
+
+Sort same_sort_second(Op op, const AbsSmtSolver * solver, const SortVec & sorts)
+{
+  return sorts[1];
 }
 
 Sort bool_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts)
@@ -711,6 +810,20 @@ Sort constructor_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts)
 Sort tester_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts)
 {
   return solver->make_sort(BOOL);
+}
+
+Sort fp_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts)
+{
+  if (op.idx0 == FPSizes<FLOAT32>::exp && op.idx1 == FPSizes<FLOAT32>::sig)
+  {
+    return solver->make_sort(FLOAT32);
+  }
+  if (op.idx0 == FPSizes<FLOAT64>::exp && op.idx1 == FPSizes<FLOAT64>::sig)
+  {
+    return solver->make_sort(FLOAT64);
+  }
+  throw NotImplementedException("Sort for floating point operator "
+                                + op.to_string() + " is not yet implemented.");
 }
 
 }  // namespace smt

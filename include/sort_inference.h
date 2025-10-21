@@ -191,9 +191,20 @@ bool arithmetic_sorts(const SortVec & sorts);
 bool array_sorts(const SortVec & sorts);
 bool function_sorts(const SortVec & sorts);
 
+bool fp_sorts(const SortVec & sorts);
+
+bool fp_rounding_mode_sorts(const SortVec & sorts);
+
+bool fp_rounding_mode_real_sorts(const SortVec & sorts);
+
+bool fp_rounding_mode_bv_sorts(const SortVec & sorts);
+
 /* Helper functions for sort inference */
 
 Sort same_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts);
+
+Sort same_sort_second(Op op, const AbsSmtSolver * solver, const SortVec & sorts);
+
 Sort bool_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts);
 Sort single_bit_sort(Op, const AbsSmtSolver * solver, const SortVec & sorts);
 Sort real_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts);
@@ -213,5 +224,7 @@ Sort tester_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts);
 Sort constructor_sort(Op op,
                       const AbsSmtSolver * solver,
                       const SortVec & sorts);
+
+Sort fp_sort(Op op, const AbsSmtSolver * solver, const SortVec & sorts);
 
 }  // namespace smt
