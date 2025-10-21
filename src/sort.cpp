@@ -34,6 +34,9 @@ const std::unordered_map<SortKind, std::string> sortkind2str({
     { UNINTERPRETED, "Uninterpreted" },
     { UNINTERPRETED_CONS, "UninterpretedSortConstructor" },
     { DATATYPE, "Datatype" },
+    { FLOAT32, "Float32" },
+    { FLOAT64, "Float64" },
+    { ROUNDINGMODE, "RoundingMode" }
 });
 
 std::string to_string(SortKind sk)
@@ -110,6 +113,14 @@ std::string AbsSort::to_string() const
   else if (sk == UNINTERPRETED)
   {
     return get_uninterpreted_name();
+  }
+  else if (sk == FLOAT32)
+  {
+    return "Float32";
+  }
+  else if (sk == FLOAT64)
+  {
+    return "Float64";
   }
   else
   {
