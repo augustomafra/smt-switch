@@ -48,6 +48,16 @@ const unordered_map<PrimOp, msat_un_fun> msat_unary_ops({
     { To_Real, ext_msat_make_nop },
     { To_Int, msat_make_floor },
     { Is_Int, ext_msat_is_int },
+    { FPAbs, msat_make_fp_abs },
+    { FPNeg, msat_make_fp_neg },
+    { FPIsNormal, msat_make_fp_isnormal },
+    { FPIsSubNormal, msat_make_fp_issubnormal },
+    { FPIsZero, msat_make_fp_iszero },
+    { FPIsInf, msat_make_fp_isinf },
+    { FPIsNan, msat_make_fp_isnan },
+    { FPIsNeg, msat_make_fp_isneg },
+    { FPIsPos, msat_make_fp_ispos },
+    //{ FP_To_REAL, }, // Not implemented in MathSAT
     // Indexed Op
     // {Extract, },
     { BVNot, msat_make_bv_not },
@@ -116,10 +126,30 @@ const unordered_map<PrimOp, msat_bin_fun> msat_binary_ops(
       { BVSge, ext_msat_make_bv_sgeq },
       { Select, msat_make_array_read },
       { Forall, msat_make_forall },
-      { Exists, msat_make_exists } });
+      { Exists, msat_make_exists },
+      { FPEq, msat_make_fp_equal },
+      { FPSqrt, msat_make_fp_sqrt },
+      //{ FPRem, }, // Not implemented in MathSAT
+      { FPRti, msat_make_fp_round_to_int },
+      { FPMin, msat_make_fp_min },
+      { FPMax, msat_make_fp_max },
+      { FPLeq, msat_make_fp_leq },
+      { FPLt, msat_make_fp_lt },
+      { FPGeq, ext_msat_make_fp_geq },
+      { FPGt, ext_msat_make_fp_gt },
+});
 
 const unordered_map<PrimOp, msat_tern_fun> msat_ternary_ops(
-    { { Ite, ext_msat_make_ite }, { Store, msat_make_array_write } });
+    { { Ite, ext_msat_make_ite },
+      { Store, msat_make_array_write },
+      { FPAdd, msat_make_fp_plus },
+      { FPSub, msat_make_fp_minus },
+      { FPMul, msat_make_fp_times },
+      { FPDiv, msat_make_fp_div } });
+
+// Fused multiplication and addition not implemented in MathSAT
+//const unordered_map<PrimOp, msat_tern_fun> msat_quaternary_ops(
+//    { { FPFma, } });      
 
 // other special cases:
 // Apply -- needs to handle arbitrarily many terms
@@ -427,6 +457,22 @@ Sort MsatSolver::make_sort(SortKind sk) const
   {
     return std::make_shared<MsatSort> (env, msat_get_rational_type(env));
   }
+  else if (sk == FLOAT32)
+  {
+    return std::make_shared<MsatSort> (
+        env,
+        msat_get_fp_type(env, FPSizes<FLOAT32>::exp, FPSizes<FLOAT32>::sig - 1));
+  }
+  else if (sk == FLOAT64)
+  {
+    return std::make_shared<MsatSort> (
+        env,
+        msat_get_fp_type(env, FPSizes<FLOAT64>::exp, FPSizes<FLOAT64>::sig - 1));
+  }
+  else if (sk == ROUNDINGMODE)
+  {
+    return std::make_shared<MsatSort>(env, msat_get_fp_roundingmode_type(env));
+  }
   else
   {
     std::string msg("Can't create sort with sort constructor ");
@@ -686,6 +732,34 @@ Term MsatSolver::make_term(const std::string val,
       }
       return std::make_shared<MsatTerm> (env, mval);
     }
+    else if (sk == FLOAT32)
+    {
+      msat_term mval =
+          msat_make_fp_rat_number(env,
+                                  val.c_str(),
+                                  FPSizes<FLOAT32>::exp,
+                                  FPSizes<FLOAT32>::sig - 1,
+                                  msat_make_fp_roundingmode_nearest_even(env));
+      if (MSAT_ERROR_TERM(mval))
+      {
+        throw IncorrectUsageException("");
+      }
+      return std::make_shared<MsatTerm>(env, mval);
+    }
+    else if (sk == FLOAT64)
+    {
+      msat_term mval =
+          msat_make_fp_rat_number(env,
+                                  val.c_str(),
+                                  FPSizes<FLOAT64>::exp,
+                                  FPSizes<FLOAT64>::sig - 1,
+                                  msat_make_fp_roundingmode_nearest_even(env));
+      if (MSAT_ERROR_TERM(mval))
+      {
+        throw IncorrectUsageException("");
+      }
+      return std::make_shared<MsatTerm>(env, mval);
+    }
     else
     {
       throw IncorrectUsageException("");
@@ -713,6 +787,31 @@ Term MsatSolver::make_term(const Term & val, const Sort & sort) const
   shared_ptr<MsatTerm> mval = static_pointer_cast<MsatTerm>(val);
   return std::make_shared<MsatTerm>
       (env, msat_make_array_const(env, msort->type, mval->term));
+}
+
+Term MsatSolver::make_term(FPRoundingMode roundingMode) const
+{
+  initialize_env();
+  switch (roundingMode)
+  {
+    case FPRoundingMode::ROUND_NEAREST_TIES_TO_EVEN:
+      return std::make_shared<MsatTerm>(
+          env, msat_make_fp_roundingmode_nearest_even(env));
+    case FPRoundingMode::ROUND_TOWARD_POSITIVE:
+      return std::make_shared<MsatTerm>(
+          env, msat_make_fp_roundingmode_plus_inf(env));
+    case FPRoundingMode::ROUND_TOWARD_NEGATIVE:
+      return std::make_shared<MsatTerm>(
+          env, msat_make_fp_roundingmode_minus_inf(env));
+    case FPRoundingMode::ROUND_TOWARD_ZERO:
+      return std::make_shared<MsatTerm>(env,
+                                        msat_make_fp_roundingmode_zero(env));
+    case FPRoundingMode::ROUND_NEAREST_TIES_TO_AWAY:
+      throw NotImplementedException(
+          "Floating point rounding mode rounding away from zero not "
+          "implemented for MathSAT.");
+  }
+  return nullptr;
 }
 
 Term MsatSolver::make_symbol(const string name, const Sort & sort)
@@ -870,6 +969,10 @@ Term MsatSolver::make_term(Op op, const Term & t) const
     }
     res = msat_make_int_to_bv(env, op.idx0, mterm->term);
   }
+  else if (op.prim_op == IEEEBV_To_FP)
+  {
+    res = msat_make_fp_from_ieeebv(env, op.idx0, op.idx1 - 1, mterm->term);
+  }
   else
   {
     string msg("Can't apply ");
@@ -922,6 +1025,28 @@ Term MsatSolver::make_term(Op op, const Term & t0, const Term & t1) const
       throw IncorrectUsageException(msg);
     }
   }
+  else if (op.prim_op == FP_To_FP)
+  {
+    res = msat_make_fp_cast(env, op.idx0, op.idx1 - 1, mterm0->term, mterm1->term);
+  }
+  else if (op.prim_op == SBV_To_FP)
+  {
+    res = msat_make_fp_from_sbv(
+        env, op.idx0, op.idx1 - 1, mterm0->term, mterm1->term);
+  }
+  else if (op.prim_op == UBV_To_FP)
+  {
+    res = msat_make_fp_from_ubv(
+        env, op.idx0, op.idx1 - 1, mterm0->term, mterm1->term);
+  }
+  else if (op.prim_op == FP_To_UBV)
+  {
+    res = msat_make_fp_to_ubv(env, op.idx0, mterm0->term, mterm1->term);
+  }
+  else if (op.prim_op == FP_To_SBV)
+  {
+    res = msat_make_fp_to_sbv(env, op.idx0, mterm0->term, mterm1->term);
+  }  
   else
   {
     string msg = op.to_string();

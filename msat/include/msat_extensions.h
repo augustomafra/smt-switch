@@ -18,6 +18,8 @@
 
 #include "mathsat.h"
 
+#include <vector>
+
 namespace smt {
 msat_term ext_msat_make_negate(msat_env e, msat_term t);
 msat_term ext_msat_make_abs(msat_env e, msat_term t);
@@ -50,6 +52,10 @@ msat_term ext_msat_make_bv_number(msat_env e,
 msat_term ext_msat_make_uf(msat_env e,
                            msat_decl func,
                            std::vector<msat_term> args);
+msat_term ext_msat_make_fp_geq(msat_env e, msat_term t0, msat_term t1);
+msat_term ext_msat_make_fp_gt(msat_env e, msat_term t0, msat_term t1);
+int ext_msat_is_fp_geq(msat_env e, msat_term t);
+int ext_msat_is_fp_gt(msat_env e, msat_term t);
 
 }  // namespace smt
 

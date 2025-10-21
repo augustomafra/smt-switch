@@ -382,6 +382,36 @@ msat_term ext_msat_make_uf(msat_env e,
   return res;
 }
 
+msat_term ext_msat_make_fp_geq(msat_env e, msat_term t0, msat_term t1)
+{
+  return msat_make_not(e, msat_make_fp_lt(e, t0, t1));
+}
+
+msat_term ext_msat_make_fp_gt(msat_env e, msat_term t0, msat_term t1)
+{
+  return msat_make_not(e, msat_make_fp_leq(e, t0, t1));
+}
+
+int ext_msat_is_fp_geq(msat_env e, msat_term t)
+{
+  if (msat_term_is_not(e, t))
+  {
+    msat_term subterm = msat_term_get_arg(t, 0);
+    return msat_term_is_fp_lt(e, subterm);
+  }
+  return 0;
+}
+
+int ext_msat_is_fp_gt(msat_env e, msat_term t)
+{
+  if (msat_term_is_not(e, t))
+  {
+    msat_term subterm = msat_term_get_arg(t, 0);
+    return msat_term_is_fp_leq(e, subterm);
+  }
+  return 0;
+}
+
 }  // namespace smt
 
 #endif
