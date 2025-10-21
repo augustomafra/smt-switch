@@ -94,7 +94,8 @@ bool uses_uninterp_sort(const Sort & sort)
 Sort TermTranslator::transfer_sort(const Sort & sort)
 {
   SortKind sk = sort->get_sort_kind();
-  if ((sk == INT) || (sk == REAL) || (sk == BOOL) || (sk == STRING))
+  if ((sk == INT) || (sk == REAL) || (sk == BOOL) || (sk == STRING)
+      || (sk == FLOAT32) || (sk == FLOAT64) || (sk == ROUNDINGMODE))
   {
     return solver->make_sort(sk);
   }
@@ -490,9 +491,58 @@ Term TermTranslator::value_from_smt2(const std::string val,
     }
     return solver->make_term(strval, true, sort);
   }
+  else if (sk == FLOAT32 || sk == FLOAT64)
+  {
+    std::istringstream iss(val);
+    std::vector<std::string> tokens(std::istream_iterator<std::string>{ iss },
+                                    std::istream_iterator<std::string>());
+
+    if (tokens[0] != "(fp" || tokens.size() != 4)
+    {
+      throw IncorrectUsageException("Can't read " + val
+                                    + " as a floating point sort.");
+    }
+
+    auto signal_str = tokens[1];
+    auto exp_str = tokens[2];
+    auto significand_str = tokens[3];
+    if (!significand_str.empty() && significand_str.back() == ')')
+    {
+      significand_str.pop_back();
+    }
+
+    if (signal_str.size() <= 2 || exp_str.size() <= 2
+        || significand_str.size() <= 2)
+    {
+      throw IncorrectUsageException("Can't read " + val
+                                    + " as a floating point sort.");
+    }
+
+    auto exp_size =
+        sk == FLOAT32 ? FPSizes<FLOAT32>::exp : FPSizes<FLOAT64>::exp;
+    auto sig_size =
+        sk == FLOAT32 ? FPSizes<FLOAT32>::sig : FPSizes<FLOAT64>::sig;
+
+    auto signal = value_from_smt2(signal_str, solver->make_sort(BV, 1));
+    auto exp = value_from_smt2(exp_str, solver->make_sort(BV, exp_size));
+    auto significand =
+        value_from_smt2(significand_str, solver->make_sort(BV, sig_size - 1));
+
+    auto bv = solver->make_term(
+        Concat, solver->make_term(Concat, signal, exp), significand);
+    return solver->make_term(Op(IEEEBV_To_FP, exp_size, sig_size), bv);
+  }
+  else if (sk == ROUNDINGMODE)
+  {
+    // TODO: Convert other rounding modes
+    if (val == "roundNearestTiesToEven")
+    {
+      return solver->make_term(FPRoundingMode::ROUND_NEAREST_TIES_TO_EVEN);
+    }
+  }
   {
     throw NotImplementedException(
-        "Only taking bool, bv, int, real, str value terms currently.");
+        "Only taking bool, bv, int, real, str, fp value terms currently.");
   }
 }
 
