@@ -16,6 +16,7 @@
 
 #include "assert.h"
 
+#include "msat_extensions.h"
 #include "msat_term.h"
 #include "msat_sort.h"
 
@@ -425,6 +426,118 @@ Op MsatTerm::get_op() const
     bool ok = msat_is_bv_type(env, msat_term_get_type(term), &out_width);
     assert(ok);
     return Op(Int_To_BV, out_width);
+  }
+  else if (msat_term_is_fp_equal(env, term))
+  {
+    return Op(FPEq);
+  }
+  else if (msat_term_is_fp_abs(env, term))
+  {
+    return Op(FPAbs);
+  }
+  else if (msat_term_is_fp_neg(env, term))
+  {
+    return Op(FPNeg);
+  }
+  else if (msat_term_is_fp_plus(env, term))
+  {
+    return Op(FPAdd);
+  }
+  else if (msat_term_is_fp_minus(env, term))
+  {
+    return Op(FPSub);
+  }
+  else if (msat_term_is_fp_times(env, term))
+  {
+    return Op(FPMul);
+  }
+  else if (msat_term_is_fp_div(env, term))
+  {
+    return Op(FPDiv);
+  }
+  else if (msat_term_is_fp_sqrt(env, term))
+  {
+    return Op(FPSqrt);
+  }
+  else if (msat_term_is_fp_round_to_int(env, term))
+  {
+    return Op(FPRti);
+  }
+  else if (msat_term_is_fp_min(env, term))
+  {
+    return Op(FPMin);
+  }
+  else if (msat_term_is_fp_max(env, term))
+  {
+    return Op(FPMax);
+  }
+  else if (msat_term_is_fp_leq(env, term))
+  {
+    return Op(FPLeq);
+  }
+  else if (msat_term_is_fp_lt(env, term))
+  {
+    return Op(FPLt);
+  }
+  else if (ext_msat_is_fp_geq(env, term))
+  {
+    return Op(FPGeq);
+  }
+  else if (ext_msat_is_fp_gt(env, term))
+  {
+    return Op(FPGt);
+  }
+  else if (msat_term_is_fp_isnormal(env, term))
+  {
+    return Op(FPIsNormal);
+  }
+  else if (msat_term_is_fp_issubnormal(env, term))
+  {
+    return Op(FPIsSubNormal);
+  }
+  else if (msat_term_is_fp_iszero(env, term))
+  {
+    return Op(FPIsZero);
+  }
+  else if (msat_term_is_fp_isinf(env, term))
+  {
+    return Op(FPIsInf);
+  }
+  else if (msat_term_is_fp_isnan(env, term))
+  {
+    return Op(FPIsNan);
+  }
+  else if (msat_term_is_fp_isneg(env, term))
+  {
+    return Op(FPIsNeg);
+  }
+  else if (msat_term_is_fp_ispos(env, term))
+  {
+    return Op(FPIsPos);
+  }
+  else if (msat_term_is_fp_from_ieeebv(env, term))
+  {
+    return Op(IEEEBV_To_FP);
+  }
+  else if (msat_term_is_fp_cast(env, term))
+  {
+    return Op(FP_To_FP);
+  }
+  else if (msat_term_is_fp_from_sbv(env, term))
+  {
+    return Op(SBV_To_FP);
+  }
+  else if (msat_term_is_fp_from_ubv(env, term))
+  {
+    return Op(UBV_To_FP);
+  }
+  else if (msat_term_is_fp_to_ubv(env, term))
+  {
+    return Op(FP_To_UBV);
+  }
+  else if (msat_term_is_fp_to_sbv(env, term))
+  {
+    return Op(FP_To_SBV);
   }
   else
   {
