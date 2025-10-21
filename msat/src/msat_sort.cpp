@@ -141,6 +141,8 @@ bool MsatSort::compare(const Sort & s) const
 
 SortKind MsatSort::get_sort_kind() const
 {
+  size_t fp_exp_width = 0;
+  size_t fp_mant_width = 0;
   if (msat_is_integer_type(env, type))
   {
     return INT;
@@ -165,15 +167,25 @@ SortKind MsatSort::get_sort_kind() const
   {
     return FUNCTION;
   }
-  else if (msat_is_fp_type(env, type, nullptr, nullptr))
+  else if (msat_is_fp_type(env, type, &fp_exp_width, &fp_mant_width))
   {
+    if (fp_exp_width == FPSizes<FLOAT32>::exp
+        && fp_mant_width == FPSizes<FLOAT32>::sig - 1)
+    {
+      return FLOAT32;
+    }
+    if (fp_exp_width == FPSizes<FLOAT64>::exp
+        && fp_mant_width == FPSizes<FLOAT64>::sig - 1)
+    {
+      return FLOAT64;
+    }
     throw NotImplementedException(
-        "Floating point not implemented for MathSAT yet.");
+        "Floating point types with arbitrary width not implemented for "
+        "MathSAT.");
   }
   else if (msat_is_fp_roundingmode_type(env, type))
   {
-    throw NotImplementedException(
-        "Floating point not implemented for MathSAT yet.");
+    return ROUNDINGMODE;
   }
   else
   {
