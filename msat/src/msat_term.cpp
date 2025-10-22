@@ -619,7 +619,11 @@ bool MsatTerm::is_symbol() const
   return (
       (msat_term_arity(term) == 0)
       && (msat_decl_get_tag(env, msat_term_get_decl(term)) == MSAT_TAG_UNKNOWN)
-      && !msat_term_is_number(env, term));
+      && !msat_term_is_number(env, term)
+      && !msat_term_is_fp_roundingmode_nearest_even(env, term)
+      && !msat_term_is_fp_roundingmode_zero(env, term)
+      && !msat_term_is_fp_roundingmode_plus_inf(env, term)
+      && !msat_term_is_fp_roundingmode_minus_inf(env, term));
 }
 
 bool MsatTerm::is_param() const { return msat_term_is_variable(env, term); }
