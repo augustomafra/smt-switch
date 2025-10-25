@@ -650,7 +650,11 @@ bool MsatTerm::is_value() const
   return (msat_term_is_number(env, term) || msat_term_is_true(env, term)
           || msat_term_is_false(env, term) ||
           // constant arrays are considered values in smt-switch
-          msat_term_is_array_const(env, term));
+          msat_term_is_array_const(env, term) ||
+          msat_term_is_fp_roundingmode_nearest_even(env, term) ||
+          msat_term_is_fp_roundingmode_zero(env, term) ||
+          msat_term_is_fp_roundingmode_plus_inf(env, term) ||
+          msat_term_is_fp_roundingmode_minus_inf(env, term));
 }
 
 string MsatTerm::to_string()
