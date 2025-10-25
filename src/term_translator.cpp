@@ -514,6 +514,11 @@ Term TermTranslator::value_from_smt2(const std::string val,
  * BNF grammar:
  *
  *   fp_term := (fp bv_term bv_term bv_term)
+ *            | (_ +oo nat nat)
+ *            | (_ -oo nat nat)
+ *            | (_ NaN nat nat)
+ *            | (_ +zero nat nat)
+ *            | (_ -zero nat nat)
  *   bv_term := (_ bvnat nat)
  *            | #bbin
  *            | #xhex
@@ -547,6 +552,7 @@ Term TermTranslator::fp_value_from_smt2(const std::string val,
   Term signal;
   Term exp;
   Term significand;
+  Term fp_special_value;
   // A term of the form (_ bvnat nat). As it contains whitespaces, it is
   // constructed from grouping three separate tokens during parsing
   std::string indexed_bv_term;
@@ -554,6 +560,7 @@ Term TermTranslator::fp_value_from_smt2(const std::string val,
   enum class ParserState
   {
     init,
+    fp_special_value,
     sign_bit,
     exponent,
     significand,
@@ -564,7 +571,7 @@ Term TermTranslator::fp_value_from_smt2(const std::string val,
   // Call multiple times until a series of three input tokens are matched, then
   // the parsed term of width 'width' is assigned to 'result' and the parser
   // transitions to 'next_state'.
-  // Returns true if the input string matches this this format, otherwise
+  // Returns true if the input string matches this format, otherwise
   // returns false.
   auto parse_indexed_bv_term = [&state, &indexed_bv_term, this](
                                    const std::string & token,
@@ -574,8 +581,7 @@ Term TermTranslator::fp_value_from_smt2(const std::string val,
     if (token == "(_")
     {
       // Parsing an indexed term (_ bvnat nat).
-      // Keep in this state until all space-separated tokens in are
-      // parsed.
+      // Keep in this state until all space-separated tokens are parsed.
       indexed_bv_term = token;
       return true;
     }
@@ -608,12 +614,59 @@ Term TermTranslator::fp_value_from_smt2(const std::string val,
     switch (state)
     {
       case ParserState::init:
+        if (*token == "(_")
+        {
+          state = ParserState::fp_special_value;
+          break;
+        }
         if (*token != "(fp")
         {
           throw IncorrectUsageException("Can't read " + val
                                         + " as a floating point sort.");
         }
         state = ParserState::sign_bit;
+        break;
+
+      case ParserState::fp_special_value:
+        if (*token == "+oo")
+        {
+          fp_special_value = solver->make_term(FPSpecialValue::POS_INFINITY,
+                                               solver->make_sort(fp_sort_kind));
+          break;
+        }
+        if (*token == "-oo")
+        {
+          fp_special_value = solver->make_term(FPSpecialValue::NEG_INFINITY,
+                                               solver->make_sort(fp_sort_kind));
+          break;
+        }
+        if (*token == "NaN")
+        {
+          fp_special_value = solver->make_term(FPSpecialValue::NOT_A_NUMBER,
+                                               solver->make_sort(fp_sort_kind));
+          break;
+        }
+        if (*token == "+zero")
+        {
+          fp_special_value = solver->make_term(FPSpecialValue::POS_ZERO,
+                                               solver->make_sort(fp_sort_kind));
+          break;
+        }
+        if (*token == "-zero")
+        {
+          fp_special_value = solver->make_term(FPSpecialValue::NEG_ZERO,
+                                               solver->make_sort(fp_sort_kind));
+          break;
+        }
+        if (!fp_special_value)
+        {
+          throw IncorrectUsageException("Can't read " + val
+                                        + " as a floating point sort.");
+        }
+        if (!token->empty() && token->back() == ')')
+        {
+          state = ParserState::done;
+        }
         break;
 
       case ParserState::sign_bit:
@@ -653,6 +706,11 @@ Term TermTranslator::fp_value_from_smt2(const std::string val,
         throw IncorrectUsageException("Can't read " + val
                                       + " as a floating point sort.");
     }
+  }
+
+  if (fp_special_value)
+  {
+    return fp_special_value;
   }
 
   auto bv = solver->make_term(

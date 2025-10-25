@@ -814,6 +814,46 @@ Term MsatSolver::make_term(FPRoundingMode roundingMode) const
   return nullptr;
 }
 
+Term MsatSolver::make_term(FPSpecialValue val, const Sort & sort) const
+{
+  initialize_env();
+
+  auto exp = sort->get_sort_kind() == FLOAT32 ? FPSizes<FLOAT32>::exp
+                                              : FPSizes<FLOAT64>::exp;
+  auto mant = sort->get_sort_kind() == FLOAT32 ? FPSizes<FLOAT32>::sig - 1
+                                               : FPSizes<FLOAT64>::sig - 1;
+
+  msat_term result;
+  switch (val)
+  {
+    case FPSpecialValue::POS_INFINITY:
+      result = msat_make_fp_plus_inf(env, exp, mant);
+      break;
+    case FPSpecialValue::NEG_INFINITY:
+      result = msat_make_fp_minus_inf(env, exp, mant);
+      break;
+    case FPSpecialValue::NOT_A_NUMBER:
+      result = msat_make_fp_nan(env, exp, mant);
+      break;
+    case FPSpecialValue::POS_ZERO:
+      result = msat_make_fp_rat_number(
+          env, "0", exp, mant, msat_make_fp_roundingmode_nearest_even(env));
+      break;
+    case FPSpecialValue::NEG_ZERO:
+      result = msat_make_fp_rat_number(
+          env, "-0", exp, mant, msat_make_fp_roundingmode_nearest_even(env));
+      break;
+  }
+
+  if (MSAT_ERROR_TERM(result))
+  {
+    throw InternalSolverException(
+        "Got msat error term when creating FPSpecialValue.");
+  }
+
+  return std::make_shared<MsatTerm>(env, result);
+}
+
 Term MsatSolver::make_symbol(const string name, const Sort & sort)
 {
   initialize_env();
