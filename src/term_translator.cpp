@@ -493,44 +493,7 @@ Term TermTranslator::value_from_smt2(const std::string val,
   }
   else if (sk == FLOAT32 || sk == FLOAT64)
   {
-    std::istringstream iss(val);
-    std::vector<std::string> tokens(std::istream_iterator<std::string>{ iss },
-                                    std::istream_iterator<std::string>());
-
-    if (tokens[0] != "(fp" || tokens.size() != 4)
-    {
-      throw IncorrectUsageException("Can't read " + val
-                                    + " as a floating point sort.");
-    }
-
-    auto signal_str = tokens[1];
-    auto exp_str = tokens[2];
-    auto significand_str = tokens[3];
-    if (!significand_str.empty() && significand_str.back() == ')')
-    {
-      significand_str.pop_back();
-    }
-
-    if (signal_str.size() <= 2 || exp_str.size() <= 2
-        || significand_str.size() <= 2)
-    {
-      throw IncorrectUsageException("Can't read " + val
-                                    + " as a floating point sort.");
-    }
-
-    auto exp_size =
-        sk == FLOAT32 ? FPSizes<FLOAT32>::exp : FPSizes<FLOAT64>::exp;
-    auto sig_size =
-        sk == FLOAT32 ? FPSizes<FLOAT32>::sig : FPSizes<FLOAT64>::sig;
-
-    auto signal = value_from_smt2(signal_str, solver->make_sort(BV, 1));
-    auto exp = value_from_smt2(exp_str, solver->make_sort(BV, exp_size));
-    auto significand =
-        value_from_smt2(significand_str, solver->make_sort(BV, sig_size - 1));
-
-    auto bv = solver->make_term(
-        Concat, solver->make_term(Concat, signal, exp), significand);
-    return solver->make_term(Op(IEEEBV_To_FP, exp_size, sig_size), bv);
+    return fp_value_from_smt2(val, sk);
   }
   else if (sk == ROUNDINGMODE)
   {
@@ -544,6 +507,157 @@ Term TermTranslator::value_from_smt2(const std::string val,
     throw NotImplementedException(
         "Only taking bool, bv, int, real, str, fp value terms currently.");
   }
+}
+
+/**
+ * Parses an SMT-LIB2 Floating-Point term string according to the following
+ * BNF grammar:
+ *
+ *   fp_term := (fp bv_term bv_term bv_term)
+ *   bv_term := (_ bvnat nat)
+ *            | #bbin
+ *            | #xhex
+ *   nat := non-negative integer
+ *   bin := binary string
+ *   hex := hexadecimal string
+ *
+ * Parsing bv_terms is achieved by calling value_from_smt2 with the expected
+ * bit-vector sort. However, fp_value_from_smt2 must still scan the bit-vector
+ * term representation because the (_ bvnat nat) format introduces whitespaces,
+ * which must be taken into account when tokenizing this term.
+ *
+ * @note No semantic validation is performed on the bit-vector or
+ * Floating-Point indexes. Values will be coerced to the corresponding exponent
+ * or significant widths if terms don't match FLOAT32 or FLOAT64 bit layout.
+ */
+Term TermTranslator::fp_value_from_smt2(const std::string val,
+                                        SortKind fp_sort_kind)
+{
+  assert(fp_sort_kind == FLOAT32 || fp_sort_kind == FLOAT64);
+
+  std::istringstream iss(val);
+  std::istream_iterator<std::string> tokens{ iss };
+
+  auto exp_size =
+      fp_sort_kind == FLOAT32 ? FPSizes<FLOAT32>::exp : FPSizes<FLOAT64>::exp;
+  auto sig_size =
+      fp_sort_kind == FLOAT32 ? FPSizes<FLOAT32>::sig : FPSizes<FLOAT64>::sig;
+
+  // Terms populated during parsing
+  Term signal;
+  Term exp;
+  Term significand;
+  // A term of the form (_ bvnat nat). As it contains whitespaces, it is
+  // constructed from grouping three separate tokens during parsing
+  std::string indexed_bv_term;
+
+  enum class ParserState
+  {
+    init,
+    sign_bit,
+    exponent,
+    significand,
+    done,
+  } state = ParserState::init;
+
+  // Auxiliary procedure to parse an indexed BV term (_ bvnat nat).
+  // Call multiple times until a series of three input tokens are matched, then
+  // the parsed term of width 'width' is assigned to 'result' and the parser
+  // transitions to 'next_state'.
+  // Returns true if the input string matches this this format, otherwise
+  // returns false.
+  auto parse_indexed_bv_term = [&state, &indexed_bv_term, this](
+                                   const std::string & token,
+                                   Term & result,
+                                   uint64_t width,
+                                   ParserState next_state) -> bool {
+    if (token == "(_")
+    {
+      // Parsing an indexed term (_ bvnat nat).
+      // Keep in this state until all space-separated tokens in are
+      // parsed.
+      indexed_bv_term = token;
+      return true;
+    }
+    if (!indexed_bv_term.empty())
+    {
+      indexed_bv_term += ' ' + token;
+      if (indexed_bv_term.back() == ')')
+      {
+        if (state == ParserState::significand)
+        {
+          // significand must be the last BV term, thus it must have two
+          // closing parenthesis: (fp ... (_ bvnat nat))
+          indexed_bv_term.pop_back();
+        }
+        // Finished parsing indexed term (_ bvnat nat).
+        result = value_from_smt2(indexed_bv_term, solver->make_sort(BV, width));
+        indexed_bv_term.clear();
+        state = next_state;
+        return true;
+      }
+      return true;
+    }
+    // String is not an indexed BV term
+    return false;
+  };
+
+  for (auto token = tokens; token != std::istream_iterator<std::string>();
+       ++token)
+  {
+    switch (state)
+    {
+      case ParserState::init:
+        if (*token != "(fp")
+        {
+          throw IncorrectUsageException("Can't read " + val
+                                        + " as a floating point sort.");
+        }
+        state = ParserState::sign_bit;
+        break;
+
+      case ParserState::sign_bit:
+        if (!parse_indexed_bv_term(*token, signal, 1, ParserState::exponent))
+        {
+          signal = value_from_smt2(*token, solver->make_sort(BV, 1));
+          state = ParserState::exponent;
+        }
+        break;
+
+      case ParserState::exponent:
+        if (!parse_indexed_bv_term(
+                *token, exp, exp_size, ParserState::significand))
+        {
+          exp = value_from_smt2(*token, solver->make_sort(BV, exp_size));
+          state = ParserState::significand;
+        }
+        break;
+
+      case ParserState::significand:
+        if (!parse_indexed_bv_term(
+                *token, significand, sig_size - 1, ParserState::done))
+        {
+          auto significand_str = *token;
+          if (!significand_str.empty() && significand_str.back() == ')')
+          {
+            significand_str.pop_back();
+          }
+          significand = value_from_smt2(significand_str,
+                                        solver->make_sort(BV, sig_size - 1));
+          state = ParserState::done;
+        }
+        break;
+
+      case ParserState::done:
+        // There must be no tokens left to parse now
+        throw IncorrectUsageException("Can't read " + val
+                                      + " as a floating point sort.");
+    }
+  }
+
+  auto bv = solver->make_term(
+      Concat, solver->make_term(Concat, signal, exp), significand);
+  return solver->make_term(Op(IEEEBV_To_FP, exp_size, sig_size), bv);
 }
 
 Term TermTranslator::cast_op(Op op, const TermVec & terms) const

@@ -108,6 +108,14 @@ class TermTranslator
    */
   Term value_from_smt2(const std::string val, const Sort sort);
 
+  /** Parses an SMT-LIB2 Floating-Point term string
+   *  @param val the string representation of the value
+   *  @param fp_sort_kind the Floating-Point sort kind for the parsed term
+   *  (must be either FLOAT32 or FLOAT64)
+   *  @return a term with the given value
+   */
+  Term fp_value_from_smt2(const std::string val, SortKind fp_sort_kind);
+
   /** translates an smtlib representation of a const rational "(/ a b)"
    *  into a infix-style representation of a const rational "a / b"
    * @param smtlib is the smtlib representation
