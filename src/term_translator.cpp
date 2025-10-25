@@ -497,10 +497,25 @@ Term TermTranslator::value_from_smt2(const std::string val,
   }
   else if (sk == ROUNDINGMODE)
   {
-    // TODO: Convert other rounding modes
-    if (val == "roundNearestTiesToEven")
+    if (val == "RNE" || val == "roundNearestTiesToEven")
     {
       return solver->make_term(FPRoundingMode::ROUND_NEAREST_TIES_TO_EVEN);
+    }
+    if (val == "RNA" || val == "roundNearestTiesToAway")
+    {
+      return solver->make_term(FPRoundingMode::ROUND_NEAREST_TIES_TO_AWAY);
+    }
+    if (val == "RTP" || val == "roundTowardPositive")
+    {
+      return solver->make_term(FPRoundingMode::ROUND_TOWARD_POSITIVE);
+    }
+    if (val == "RTN" || val == "roundTowardNegative")
+    {
+      return solver->make_term(FPRoundingMode::ROUND_TOWARD_NEGATIVE);
+    }
+    if (val == "RTZ" || val == "roundTowardZero")
+    {
+      return solver->make_term(FPRoundingMode::ROUND_TOWARD_ZERO);
     }
   }
   {
