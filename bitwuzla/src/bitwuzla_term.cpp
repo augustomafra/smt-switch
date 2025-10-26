@@ -98,10 +98,45 @@ const std::unordered_map<bitwuzla::Kind, PrimOp> bkind2primop(
       { bitwuzla::Kind::ARRAY_STORE, Store },
       /* Quantifiers */
       { bitwuzla::Kind::FORALL, Forall },
-      { bitwuzla::Kind::EXISTS, Exists } });
+      { bitwuzla::Kind::EXISTS, Exists },
+      /* Floating-Point Theory */
+      { bitwuzla::Kind::FP_EQUAL, FPEq },
+      { bitwuzla::Kind::FP_ABS, FPAbs },
+      { bitwuzla::Kind::FP_NEG, FPNeg },
+      { bitwuzla::Kind::FP_ADD, FPAdd },
+      { bitwuzla::Kind::FP_SUB, FPSub },
+      { bitwuzla::Kind::FP_MUL, FPMul },
+      { bitwuzla::Kind::FP_DIV, FPDiv },
+      { bitwuzla::Kind::FP_FMA, FPFma },
+      { bitwuzla::Kind::FP_SQRT, FPSqrt },
+      { bitwuzla::Kind::FP_REM, FPRem },
+      { bitwuzla::Kind::FP_RTI, FPRti },
+      { bitwuzla::Kind::FP_MIN, FPMin },
+      { bitwuzla::Kind::FP_MAX, FPMax },
+      { bitwuzla::Kind::FP_LEQ, FPLeq },
+      { bitwuzla::Kind::FP_LT, FPLt },
+      { bitwuzla::Kind::FP_GEQ, FPGeq },
+      { bitwuzla::Kind::FP_GT, FPGt },
+      { bitwuzla::Kind::FP_IS_NORMAL, FPIsNormal },
+      { bitwuzla::Kind::FP_IS_SUBNORMAL, FPIsSubNormal },
+      { bitwuzla::Kind::FP_IS_ZERO, FPIsZero },
+      { bitwuzla::Kind::FP_IS_INF, FPIsInf },
+      { bitwuzla::Kind::FP_IS_NAN, FPIsNan },
+      { bitwuzla::Kind::FP_IS_NEG, FPIsNeg },
+      { bitwuzla::Kind::FP_IS_POS, FPIsPos },
+      { bitwuzla::Kind::FP_TO_FP_FROM_BV, IEEEBV_To_FP }, // Indexed
+      { bitwuzla::Kind::FP_TO_FP_FROM_FP, FP_To_FP },     // Indexed
+      //{ , Real_To_FP }, // Not supported in Bitwuzla
+      { bitwuzla::Kind::FP_TO_FP_FROM_SBV, SBV_To_FP },   // Indexed
+      { bitwuzla::Kind::FP_TO_FP_FROM_UBV, UBV_To_FP },   // Indexed
+      { bitwuzla::Kind::FP_TO_UBV, FP_To_UBV },           // Indexed
+      { bitwuzla::Kind::FP_TO_SBV, FP_To_SBV },           // Indexed
+      //{ , FP_To_REAL } // Not supported in Bitwuzla      
+    });
 
 const std::unordered_set<PrimOp> indexed_ops(
-    { Extract, Zero_Extend, Sign_Extend, Repeat, Rotate_Left, Rotate_Right });
+    { Extract, Zero_Extend, Sign_Extend, Repeat, Rotate_Left, Rotate_Right,
+      IEEEBV_To_FP, FP_To_FP, SBV_To_FP, UBV_To_FP, FP_To_UBV, FP_To_SBV });
 
 /*  start BzlaTermIter implementation */
 

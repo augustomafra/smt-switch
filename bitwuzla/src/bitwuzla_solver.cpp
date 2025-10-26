@@ -87,7 +87,41 @@ const std::unordered_map<PrimOp, bitwuzla::Kind> op2bkind(
       { Store, bitwuzla::Kind::ARRAY_STORE },
       /* Quantifiers */
       { Forall, bitwuzla::Kind::FORALL },
-      { Exists, bitwuzla::Kind::EXISTS } });
+      { Exists, bitwuzla::Kind::EXISTS },
+      /* Floating-Point Theory */
+      { FPEq, bitwuzla::Kind::FP_EQUAL },
+      { FPAbs, bitwuzla::Kind::FP_ABS },
+      { FPNeg, bitwuzla::Kind::FP_NEG },
+      { FPAdd, bitwuzla::Kind::FP_ADD },
+      { FPSub, bitwuzla::Kind::FP_SUB },
+      { FPMul, bitwuzla::Kind::FP_MUL },
+      { FPDiv, bitwuzla::Kind::FP_DIV },
+      { FPFma, bitwuzla::Kind::FP_FMA },
+      { FPSqrt, bitwuzla::Kind::FP_SQRT },
+      { FPRem, bitwuzla::Kind::FP_REM },
+      { FPRti, bitwuzla::Kind::FP_RTI },
+      { FPMin, bitwuzla::Kind::FP_MIN },
+      { FPMax, bitwuzla::Kind::FP_MAX },
+      { FPLeq, bitwuzla::Kind::FP_LEQ },
+      { FPLt, bitwuzla::Kind::FP_LT },
+      { FPGeq, bitwuzla::Kind::FP_GEQ },
+      { FPGt, bitwuzla::Kind::FP_GT },
+      { FPIsNormal, bitwuzla::Kind::FP_IS_NORMAL },
+      { FPIsSubNormal, bitwuzla::Kind::FP_IS_SUBNORMAL },
+      { FPIsZero, bitwuzla::Kind::FP_IS_ZERO },
+      { FPIsInf, bitwuzla::Kind::FP_IS_INF },
+      { FPIsNan, bitwuzla::Kind::FP_IS_NAN },
+      { FPIsNeg, bitwuzla::Kind::FP_IS_NEG },
+      { FPIsPos, bitwuzla::Kind::FP_IS_POS },
+      { IEEEBV_To_FP, bitwuzla::Kind::FP_TO_FP_FROM_BV },
+      { FP_To_FP, bitwuzla::Kind::FP_TO_FP_FROM_FP },
+      //{ Real_To_FP, }, // Not supported in Bitwuzla
+      { SBV_To_FP, bitwuzla::Kind::FP_TO_FP_FROM_SBV },
+      { UBV_To_FP, bitwuzla::Kind::FP_TO_FP_FROM_UBV },
+      { FP_To_UBV, bitwuzla::Kind::FP_TO_UBV },
+      { FP_To_SBV, bitwuzla::Kind::FP_TO_SBV },
+      //{ FP_To_REAL, } // Not supported in Bitwuzla
+    });
 
 const std::unordered_set<std::uint64_t> bvbases({ 2, 10, 16 });
 
@@ -247,6 +281,20 @@ Sort BzlaSolver::make_sort(SortKind sk) const
   if (sk == BOOL)
   {
     return std::make_shared<BzlaSort>(tm->mk_bool_sort());
+  }
+  else if (sk == FLOAT32)
+  {
+    return std::make_shared<BzlaSort>(
+        tm->mk_fp_sort(FPSizes<FLOAT32>::exp, FPSizes<FLOAT32>::sig));
+  }
+  else if (sk == FLOAT64)
+  {
+    return std::make_shared<BzlaSort>(
+        tm->mk_fp_sort(FPSizes<FLOAT64>::exp, FPSizes<FLOAT64>::sig));
+  }
+  else if (sk == ROUNDINGMODE)
+  {
+    return std::make_shared<BzlaSort>(tm->mk_rm_sort());
   }
   else
   {
@@ -464,7 +512,22 @@ Term BzlaSolver::make_term(const std::string val,
                            std::uint64_t base) const
 {
   SortKind sk = sort->get_sort_kind();
-  if (sk != BV)
+
+  if (sk == FLOAT32)
+  {
+    bitwuzla::Sort fp_sort =
+        tm->mk_fp_sort(FPSizes<FLOAT32>::exp, FPSizes<FLOAT32>::sig);
+    return std::make_shared<BzlaTerm>(tm->mk_fp_value(
+        fp_sort, tm->mk_rm_value(bitwuzla::RoundingMode::RNE), val));
+  }
+  else if (sk == FLOAT64)
+  {
+    bitwuzla::Sort fp_sort =
+        tm->mk_fp_sort(FPSizes<FLOAT64>::exp, FPSizes<FLOAT64>::sig);
+    return std::make_shared<BzlaTerm>(tm->mk_fp_value(
+        fp_sort, tm->mk_rm_value(bitwuzla::RoundingMode::RNE), val));
+  }
+  else if (sk != BV)
   {
     throw NotImplementedException(
         "Bitwuzla does not support creating values for sort kind"
@@ -500,6 +563,57 @@ Term BzlaSolver::make_term(const Term & val, const Sort & sort) const
   std::shared_ptr<BzlaSort> bsort = std::static_pointer_cast<BzlaSort>(sort);
   return std::make_shared<BzlaTerm>(
       tm->mk_const_array(bsort->sort, bterm->term));
+}
+
+Term BzlaSolver::make_term(FPRoundingMode roundingMode) const
+{
+  auto rm = bitwuzla::RoundingMode::RNE;
+  switch (roundingMode)
+  {
+    case FPRoundingMode::ROUND_NEAREST_TIES_TO_EVEN:
+      rm = bitwuzla::RoundingMode::RNE;
+      break;
+    case FPRoundingMode::ROUND_TOWARD_POSITIVE:
+      rm = bitwuzla::RoundingMode::RTP;
+      break;
+    case FPRoundingMode::ROUND_TOWARD_NEGATIVE:
+      rm = bitwuzla::RoundingMode::RTN;
+      break;
+    case FPRoundingMode::ROUND_TOWARD_ZERO:
+      rm = bitwuzla::RoundingMode::RTZ;
+      break;
+    case FPRoundingMode::ROUND_NEAREST_TIES_TO_AWAY:
+      rm = bitwuzla::RoundingMode::RNA;
+      break;
+  }
+  return std::make_shared<BzlaTerm>(tm->mk_rm_value(rm));
+}
+
+Term BzlaSolver::make_term(FPSpecialValue val, const Sort & sort) const
+{
+  assert(sort->get_sort_kind() == FLOAT32 || sort->get_sort_kind() == FLOAT64);
+
+  auto exp = sort->get_sort_kind() == FLOAT32 ? FPSizes<FLOAT32>::exp
+                                              : FPSizes<FLOAT64>::exp;
+  auto sig = sort->get_sort_kind() == FLOAT32 ? FPSizes<FLOAT32>::sig
+                                              : FPSizes<FLOAT64>::sig;
+
+  bitwuzla::Sort fp_sort = tm->mk_fp_sort(exp, sig);
+  bitwuzla::Term result;
+  switch (val)
+  {
+    case FPSpecialValue::POS_INFINITY:
+      result = tm->mk_fp_pos_inf(fp_sort);
+      break;
+    case FPSpecialValue::NEG_INFINITY:
+      result = tm->mk_fp_neg_inf(fp_sort);
+      break;
+    case FPSpecialValue::NOT_A_NUMBER: result = tm->mk_fp_nan(fp_sort); break;
+    case FPSpecialValue::POS_ZERO: result = tm->mk_fp_pos_zero(fp_sort); break;
+    case FPSpecialValue::NEG_ZERO: result = tm->mk_fp_neg_zero(fp_sort); break;
+  }
+
+  return std::make_shared<BzlaTerm>(result);
 }
 
 Term BzlaSolver::make_symbol(const std::string name, const Sort & sort)

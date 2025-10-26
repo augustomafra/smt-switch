@@ -118,10 +118,6 @@ SortKind BzlaSort::get_sort_kind() const
   {
     return FUNCTION;
   }
-  else if (sort.is_fp())
-  {
-    return REAL;
-  }
   else if (sort.is_bool())
   {
     return BOOL;
@@ -129,6 +125,26 @@ SortKind BzlaSort::get_sort_kind() const
   else if (sort.is_uninterpreted())
   {
     return UNINTERPRETED;
+  }
+  else if (sort.is_fp())
+  {
+    if (sort.fp_exp_size() == FPSizes<FLOAT32>::exp
+        && sort.fp_sig_size() == FPSizes<FLOAT32>::sig)
+    {
+      return FLOAT32;
+    }
+    if (sort.fp_exp_size() == FPSizes<FLOAT64>::exp
+        && sort.fp_sig_size() == FPSizes<FLOAT64>::sig)
+    {
+      return FLOAT64;
+    }
+    throw NotImplementedException(
+        "Floating point types with arbitrary width not implemented for "
+        "Bitwuzla.");
+  }
+  else if (sort.is_rm())
+  {
+    return ROUNDINGMODE;
   }
   else
   {
