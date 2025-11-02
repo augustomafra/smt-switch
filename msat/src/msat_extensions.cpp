@@ -384,32 +384,28 @@ msat_term ext_msat_make_uf(msat_env e,
 
 msat_term ext_msat_make_fp_geq(msat_env e, msat_term t0, msat_term t1)
 {
-  return msat_make_not(e, msat_make_fp_lt(e, t0, t1));
+  auto isnan0 = msat_make_fp_isnan(e, t0);
+  auto isnan1 = msat_make_fp_isnan(e, t1);
+  msat_term has_nan = msat_make_or(e, isnan0, isnan1);
+  msat_term not_has_nan = msat_make_not(e, has_nan);
+  auto lt = msat_make_fp_lt(e, t0, t1);
+  auto not_lt = msat_make_not(e, lt);
+
+  // ~has_nan ^ ~(t0 < t1)
+  return msat_make_and(e, not_has_nan, not_lt);
 }
 
 msat_term ext_msat_make_fp_gt(msat_env e, msat_term t0, msat_term t1)
 {
-  return msat_make_not(e, msat_make_fp_leq(e, t0, t1));
-}
+  auto isnan0 = msat_make_fp_isnan(e, t0);
+  auto isnan1 = msat_make_fp_isnan(e, t1);
+  msat_term has_nan = msat_make_or(e, isnan0, isnan1);
+  msat_term not_has_nan = msat_make_not(e, has_nan);
+  auto leq = msat_make_fp_leq(e, t0, t1);
+  auto not_leq = msat_make_not(e, leq);
 
-int ext_msat_is_fp_geq(msat_env e, msat_term t)
-{
-  if (msat_term_is_not(e, t))
-  {
-    msat_term subterm = msat_term_get_arg(t, 0);
-    return msat_term_is_fp_lt(e, subterm);
-  }
-  return 0;
-}
-
-int ext_msat_is_fp_gt(msat_env e, msat_term t)
-{
-  if (msat_term_is_not(e, t))
-  {
-    msat_term subterm = msat_term_get_arg(t, 0);
-    return msat_term_is_fp_leq(e, subterm);
-  }
-  return 0;
+  // ~has_nan ^ ~(t0 <= t1)
+  return msat_make_and(e, not_has_nan, not_leq);
 }
 
 }  // namespace smt

@@ -479,14 +479,6 @@ Op MsatTerm::get_op() const
   {
     return Op(FPLt);
   }
-  else if (ext_msat_is_fp_geq(env, term))
-  {
-    return Op(FPGeq);
-  }
-  else if (ext_msat_is_fp_gt(env, term))
-  {
-    return Op(FPGt);
-  }
   else if (msat_term_is_fp_isnormal(env, term))
   {
     return Op(FPIsNormal);
